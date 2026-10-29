@@ -1,0 +1,24 @@
+{
+  "version": "0.2.3",
+  "versionCode": 6,
+  "base_commit": "1e9a5e23330acde98b0f312fb630305e5b0eadf8",
+  "tests": {
+    "tests": 83,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "device_tested": false,
+  "installed": false,
+  "apk": "OnDeviceAgentAndroid-0.2.3.apk",
+  "sha256": "6389c6f8353014da6852e75ab6f86f3a18c9689a9672cfee06dda5df7b8cbeae",
+  "signature_verified": true,
+  "signer_sha256": "25378f4301c0919bb9b455331ed1f86a75a74ea3be5e6f06515959160b65b20b",
+  "lint": {
+    "passed": false,
+    "errors": 4,
+    "warnings": 28,
+    "information": 1,
+    "new_issues": 0
+  }
+}

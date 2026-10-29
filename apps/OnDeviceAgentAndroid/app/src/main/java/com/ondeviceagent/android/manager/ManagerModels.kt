@@ -83,6 +83,22 @@ data class TaskLastRun(
 )
 
 @Serializable
+enum class PostRunAction(val title: String) {
+    keep("保持当前页面"), returnToAgent("返回 One Agent 任务页"),
+    dismissAndReturn("划掉目标 App 后返回")
+}
+
+@Serializable
+enum class PostRunWhen(val title: String) {
+    successOnly("仅成功后"), successOrFailure("成功或失败后")
+}
+
+@Serializable
+enum class DismissDirection(val title: String) {
+    up("向上划"), left("向左划"), right("向右划")
+}
+
+@Serializable
 data class TaskTemplate(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
@@ -103,6 +119,10 @@ data class TaskTemplate(
     val maxRunMinutes: Int = 15,
     val completionText: String = "",
     val guardedActionTexts: String = "上班打卡,下班打卡,提交,发送",
+    val postRunAction: PostRunAction = PostRunAction.keep,
+    val postRunWhen: PostRunWhen = PostRunWhen.successOnly,
+    val cleanupPackage: String = "",
+    val dismissDirection: DismissDirection = DismissDirection.up,
 
     val pendingRetryAtEpochMs: Long? = null,
     val retryDeadlineAtEpochMs: Long? = null,
@@ -133,6 +153,10 @@ data class TaskTemplateDraft(
     val maxRunMinutes: Int = 15,
     val completionText: String = "",
     val guardedActionTexts: String = "上班打卡,下班打卡,提交,发送",
+    val postRunAction: PostRunAction = PostRunAction.keep,
+    val postRunWhen: PostRunWhen = PostRunWhen.successOnly,
+    val cleanupPackage: String = "",
+    val dismissDirection: DismissDirection = DismissDirection.up,
 
 ) {
     fun toTemplate(existing: TaskTemplate? = null): TaskTemplate {
@@ -168,6 +192,8 @@ data class TaskTemplateDraft(
             maxRunMinutes = maxRunMinutes.coerceIn(1, 180),
             completionText = completionText.trim().take(80),
             guardedActionTexts = guardedActionTexts.trim().take(200),
+            postRunAction = postRunAction, postRunWhen = postRunWhen,
+            cleanupPackage = cleanupPackage.trim(), dismissDirection = dismissDirection,
             submissionPending = existing?.submissionPending.orEmpty(),
             activeRunId = existing?.activeRunId,
             activeStartedAtEpochMs = existing?.activeStartedAtEpochMs,
@@ -193,6 +219,8 @@ data class TaskTemplateDraft(
             maxRunMinutes = task.maxRunMinutes,
             completionText = task.completionText,
             guardedActionTexts = task.guardedActionTexts,
+            postRunAction = task.postRunAction, postRunWhen = task.postRunWhen,
+            cleanupPackage = task.cleanupPackage, dismissDirection = task.dismissDirection,
         )
     }
 }

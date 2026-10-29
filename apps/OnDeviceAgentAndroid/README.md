@@ -8,13 +8,13 @@
 
 第一版把 **管理端 + 执行端** 合并为一个 APK，并保持现有 `/agent/*` JSON 契约，便于复用 Manager 逻辑与 Python 工具。
 
-## 0.2.2 下载与验证
+## 0.2.3 下载与验证
 
-- [下载 APK](../../releases/android/0.2.2/OnDeviceAgentAndroid-0.2.2.apk)
-- [校验值](../../releases/android/0.2.2/SHA256SUMS)
-- [开发与验证记录](../../docs/android-agent-0.2.2-version-display.md)
+- [下载 APK](../../releases/android/0.2.3/OnDeviceAgentAndroid-0.2.3.apk)
+- [校验值](../../releases/android/0.2.3/SHA256SUMS)
+- [开发与验证记录](../../docs/android-agent-0.2.3-post-run-actions.md)
 
-配置页顶部显示 APK 版本号和构建号。本版包含 0.2.1 的任务中心手动运行完成后不弹窗优化；定时运行继续不弹窗，系统通知和其他入口沿用原逻辑。保留按任务配置的重试及执行保障功能。70 项本地测试通过；未进行本版真机验收或安装。APK 为 debug 签名构建。
+任务创建／编辑页新增结束后操作：保持页面、返回 One Agent 任务页、划掉指定目标 App 最近任务卡片后返回；可选执行条件、目标应用和划动方向。旧任务默认保持原行为。配置页顶部显示版本 0.2.3（构建 6）。83 项本地测试通过，未进行本版真机验收或安装。划卡受厂商界面适配限制，不保证强制结束后台进程。APK 为 debug 签名构建。
 
 ## 当前功能
 

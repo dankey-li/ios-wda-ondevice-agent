@@ -48,7 +48,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    private data class DeepLink(val openHistory: Boolean = false, val runId: String? = null)
+    private data class DeepLink(val openHistory: Boolean = false, val runId: String? = null, val openTasks: Boolean = false, val requestId: String = "")
 
     private val deepLink = MutableStateFlow(DeepLink())
     private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -86,13 +86,15 @@ class MainActivity : ComponentActivity() {
             val app = OnDeviceAgentApp.get()
             val state by app.runtime.uiState.collectAsState()
             val link by deepLink.collectAsState()
-            var tab by remember { mutableIntStateOf(if (link.openHistory) 2 else 0) }
+            var tab by remember { mutableIntStateOf(if (link.openTasks) 1 else if (link.openHistory) 2 else 0) }
             var pendingRunId by remember { mutableStateOf(link.runId) }
             val result = state.lastRunResult
             val showResultDialog = result != null && !result.dismissed
 
             androidx.compose.runtime.LaunchedEffect(link) {
-                if (link.openHistory) {
+                if (link.openTasks) {
+                    tab = 1
+                } else if (link.openHistory) {
                     tab = 2
                     pendingRunId = link.runId
                 }
@@ -219,9 +221,16 @@ class MainActivity : ComponentActivity() {
     private fun deepLinkFrom(intent: Intent?): DeepLink {
         if (intent == null) return DeepLink()
         return DeepLink(
+            openTasks = intent.getBooleanExtra(EXTRA_OPEN_TASKS, false),
+            requestId = intent.getStringExtra(EXTRA_RETURN_REQUEST).orEmpty(),
             openHistory = intent.getBooleanExtra(RunCompletionNotifier.EXTRA_OPEN_HISTORY, false),
             runId = intent.getStringExtra(RunCompletionNotifier.EXTRA_RUN_ID),
         )
+    }
+
+    companion object {
+        const val EXTRA_OPEN_TASKS = "open_tasks"
+        const val EXTRA_RETURN_REQUEST = "return_request"
     }
 
     private fun maybeRequestNotificationPermission() {

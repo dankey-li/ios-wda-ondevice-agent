@@ -56,6 +56,7 @@ data class TraceTurnRecord(
 data class TraceDetail(
     val manifest: TraceManifest,
     val turns: List<TraceTurnRecord>,
+    val postRunMessage: String = "",
 )
 
 class TraceRecorder(context: Context) {
@@ -132,6 +133,12 @@ class TraceRecorder(context: Context) {
         activeRunId = ""
     }
 
+    /** 收尾结果独立落盘，不覆盖业务执行结果或截图。 */
+    fun recordPostRun(runId: String, message: String) {
+        val dir = File(root, runId)
+        if (dir.isDirectory) File(dir, "post_run.txt").writeText(message, Charsets.UTF_8)
+    }
+
     fun statusSnapshot(): Map<String, Any?> = mapOf(
         "run_id" to activeRunId,
         "active" to (activeDir != null),
@@ -192,7 +199,7 @@ class TraceRecorder(context: Context) {
                     else runCatching { json.decodeFromString<TraceTurnRecord>(trimmed) }.getOrNull()
                 }
         }
-        return TraceDetail(manifest = manifest, turns = turns)
+        return TraceDetail(manifest = manifest, turns = turns, postRunMessage = File(dir, "post_run.txt").takeIf { it.isFile }?.readText(Charsets.UTF_8).orEmpty())
     }
 
     fun loadStepBitmap(runId: String, step: Int): Bitmap? {

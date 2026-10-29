@@ -270,6 +270,7 @@ private fun TraceDetailScreen(
                         Text("结束：${d.manifest.finished_at.ifBlank { "-" }}")
                         if (d.manifest.attempt > 0) Text("第 ${d.manifest.attempt} 次重试 · 原运行：${d.manifest.parent_run_id.ifBlank { "启动失败后的补跑" }}")
                         Text("步骤数：${d.turns.size} · 原因：${d.manifest.final_status.stop_reason}")
+                        if (d.postRunMessage.isNotBlank()) Text("结束后操作：${d.postRunMessage}")
                     }
                 }
             }

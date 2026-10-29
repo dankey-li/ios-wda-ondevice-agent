@@ -5,6 +5,7 @@ import com.ondeviceagent.android.manager.*
 import com.ondeviceagent.android.model.AgentConfigRequest
 import com.ondeviceagent.android.runtime.*
 import com.ondeviceagent.android.trace.TraceRecorder
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import okhttp3.mockwebserver.*
@@ -28,11 +29,20 @@ class RuntimeLifecycleTest {
     private lateinit var runtime: AgentRuntime
     private val actions = java.util.Collections.synchronizedList(mutableListOf<String>())
     private var screen = "测试页面"
+    private var postRunCalls = 0
+    private var postRunHook: suspend (TaskTemplate) -> String = { "模拟返回任务页" }
 
     @Before fun setup() = runBlocking {
         app = RuntimeEnvironment.getApplication() as OnDeviceAgentApp
         server = MockWebServer(); server.start()
         runtime = AgentRuntime(app, TraceRecorder(app), object : ExecutionEnvironment {
+            override suspend fun postRun(task: TaskTemplate): String {
+                postRunCalls++
+                val dir = java.io.File(app.filesDir, "traces")
+                assertTrue(dir.listFiles().orEmpty().any { java.io.File(it, "manifest.json").readText().contains("测试结束") })
+                assertNotEquals(TaskRunState.running, app.managerStore.templates.value.single().lastRun.state)
+                return postRunHook(task)
+            }
             override fun ready() = true
             override suspend fun screenshot(halfResolution: Boolean): String? = null
             override fun screenInfo(step: Int) = """{"package":"test.app","width_px":1080,"height_px":2400,"screenshot":false,"ui":[{"text":"$screen","clickable":true,"element":[500,500],"bounds":[0,0,1000,1000]}]}"""
@@ -75,6 +85,60 @@ class RuntimeLifecycleTest {
         assertTrue(result.success)
         assertTrue(result.dismissed)
         assertEquals(TaskRunState.success, app.managerStore.templates.value.single().lastRun.state)
+    }
+
+    @Test fun `先保存成功结果再收尾且清理失败不重试业务`() = runBlocking {
+        val owner = app.managerStore.templates.value.single()
+        app.managerStore.upsert(owner.copy(postRunAction = com.ondeviceagent.android.manager.PostRunAction.dismissAndReturn, cleanupPackage = "test.app"))
+        postRunHook = { throw IllegalStateException("清理模拟失败") }
+        server.enqueue(response("Finish", buildJsonObject { put("status", "success"); put("message", "测试结束"); put("evidence", "测试页面") }))
+        start(); val result = completed()
+        assertTrue(result.success)
+        assertEquals(1, postRunCalls)
+        assertNull(app.managerStore.templates.value.single().pendingRetryAtEpochMs)
+        val detail = TraceRecorder(app).loadDetail(result.runId)!!
+        assertTrue(detail.postRunMessage.contains("清理模拟失败"))
+        assertTrue(detail.manifest.final_status.success)
+    }
+
+    @Test fun `默认保持页面不会触发收尾`() = runBlocking {
+        server.enqueue(response("Finish", buildJsonObject { put("status", "success"); put("message", "测试结束"); put("evidence", "测试页面") }))
+        start(); assertTrue(completed().success)
+        assertEquals(0, postRunCalls)
+    }
+
+    @Test fun `仅成功后返回的设置在失败时不收尾`() = runBlocking {
+        val owner = app.managerStore.templates.value.single()
+        app.managerStore.upsert(owner.copy(postRunAction = com.ondeviceagent.android.manager.PostRunAction.returnToAgent))
+        server.enqueue(response("Finish", buildJsonObject { put("status", "failed"); put("message", "未完成") }))
+        start(); assertFalse(completed().success)
+        assertEquals(0, postRunCalls)
+    }
+
+    @Test fun `选择成功或失败后返回在业务失败时也收尾`() = runBlocking {
+        val owner = app.managerStore.templates.value.single()
+        app.managerStore.upsert(owner.copy(postRunAction = com.ondeviceagent.android.manager.PostRunAction.returnToAgent,
+            postRunWhen = com.ondeviceagent.android.manager.PostRunWhen.successOrFailure))
+        server.enqueue(response("Finish", buildJsonObject { put("status", "failed"); put("message", "测试结束") }))
+        start(); assertFalse(completed().success)
+        assertEquals(1, postRunCalls)
+    }
+
+    @Test fun `收尾完成前不允许下次启动覆盖现场`() = runBlocking {
+        val owner = app.managerStore.templates.value.single()
+        app.managerStore.upsert(owner.copy(postRunAction = com.ondeviceagent.android.manager.PostRunAction.returnToAgent))
+        val entered = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val release = kotlinx.coroutines.CompletableDeferred<Unit>()
+        postRunHook = { entered.complete(Unit); release.await(); "模拟返回" }
+        server.enqueue(response("Finish", buildJsonObject { put("status", "success"); put("message", "测试结束"); put("evidence", "测试页面") }))
+        start()
+        withTimeout(5000) { entered.await() }
+        val contender = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch { runtime.start(AgentConfigRequest(task = "")) }
+        delay(100)
+        assertFalse(contender.isCompleted)
+        release.complete(Unit)
+        withTimeout(5000) { contender.join() }
+        assertEquals(1, postRunCalls)
     }
 
     @Test fun `Home用于纠错后继续执行不会自动判成功`() = runBlocking {

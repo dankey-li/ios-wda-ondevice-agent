@@ -21,6 +21,7 @@ import com.ondeviceagent.android.llm.ModelHttpException
 import com.ondeviceagent.android.llm.ModelClient
 import com.ondeviceagent.android.llm.PlanItem
 import com.ondeviceagent.android.llm.plus
+import com.ondeviceagent.android.manager.PostRunPolicy
 import com.ondeviceagent.android.manager.SubmissionPolicy
 import com.ondeviceagent.android.manager.RunClaim
 import com.ondeviceagent.android.manager.CompletionPolicy
@@ -720,6 +721,28 @@ class AgentRuntime(
                             runCatching { traceRecorder.lastImageBytes(finishedRunId) }.getOrNull()
                         } else {
                             null
+                        }
+                        // 历史、截图和任务状态先落盘；互斥期间完成收尾，防止旧任务抢占新任务。
+                        if (runOwner != null) {
+                            val store = OnDeviceAgentApp.get().managerStore
+                            fun allowed(): Boolean {
+                                val stored = store.templates.value.firstOrNull { it.id == runOwner.id } ?: return false
+                                return stored.activeRunId == null && stored.lastRun.state != TaskRunState.running &&
+                                    PostRunPolicy.shouldRun(runOwner, success, stopReason, stored.executionRevision)
+                            }
+                            if (allowed()) {
+                                val cleanupMessage = try {
+                                    kotlinx.coroutines.withTimeoutOrNull(6500) {
+                                        executionEnvironment?.postRun(runOwner)
+                                            ?: PostRunController(appContext).execute(runOwner, ::allowed)
+                                    } ?: "结束后操作超时，业务结果已保存"
+                                } catch (error: Exception) {
+                                    if (error is CancellationException) throw error
+                                    "结束后操作失败：${error.message.orEmpty()}"
+                                }
+                                runCatching { traceRecorder.recordPostRun(finishedRunId, cleanupMessage) }
+                                appendLog("info", "结束后操作：$cleanupMessage")
+                            }
                         }
                         stopLoopLocked(msg, finishedTrace = true)
                         if (shouldNotify) {
