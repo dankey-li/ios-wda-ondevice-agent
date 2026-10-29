@@ -8,13 +8,13 @@
 
 第一版把 **管理端 + 执行端** 合并为一个 APK，并保持现有 `/agent/*` JSON 契约，便于复用 Manager 逻辑与 Python 工具。
 
-## 0.2.0 下载与验证
+## 0.2.2 下载与验证
 
-- [下载 APK](../../releases/android/0.2.0/OnDeviceAgentAndroid-0.2.0-configurable-retry.apk)
-- [校验值](../../releases/android/0.2.0/SHA256SUMS)
-- [开发与验证记录](../../docs/android-agent-0.2.0-retry-and-safety.md)
+- [下载 APK](../../releases/android/0.2.2/OnDeviceAgentAndroid-0.2.2.apk)
+- [校验值](../../releases/android/0.2.2/SHA256SUMS)
+- [开发与验证记录](../../docs/android-agent-0.2.2-version-display.md)
 
-本版支持按任务配置失败重试次数、间隔、有效期和执行时限，并加入成功判据、指定按钮重复提交保护与执行历史诊断。本地 69 项测试通过；真机验收与安装待完成，静态检查仍有原有 4 项错误。APK 为 debug 签名构建。
+配置页顶部显示 APK 版本号和构建号。本版包含 0.2.1 的任务中心手动运行完成后不弹窗优化；定时运行继续不弹窗，系统通知和其他入口沿用原逻辑。保留按任务配置的重试及执行保障功能。70 项本地测试通过；未进行本版真机验收或安装。APK 为 debug 签名构建。
 
 ## 当前功能
 

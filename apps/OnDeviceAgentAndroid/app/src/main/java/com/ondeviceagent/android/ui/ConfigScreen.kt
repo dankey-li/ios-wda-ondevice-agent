@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.ondeviceagent.android.BuildConfig
 import com.ondeviceagent.android.llm.AgentPrompts
 import com.ondeviceagent.android.model.AgentConfigRequest
 import com.ondeviceagent.android.runtime.AgentRuntime
@@ -93,6 +94,11 @@ fun ConfigScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text("配置", style = MaterialTheme.typography.headlineSmall)
+        Text(
+            "版本 ${BuildConfig.VERSION_NAME}（构建 ${BuildConfig.VERSION_CODE}）",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Text(
             "状态：${if (state.running) "运行中 step=${state.currentStep}" else "空闲"} · " +
                 "无障碍=${if (state.accessibilityConnected) "开" else "关"} · " +

@@ -1,0 +1,43 @@
+{
+  "version": "0.2.2",
+  "versionCode": 5,
+  "base_commit": "4843379eeacb67ef7f6d00271bbbb4c35cbb1ea8",
+  "tests": {
+    "tests": 70,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "device_tested": false,
+  "installed": false,
+  "apk": "OnDeviceAgentAndroid-0.2.2.apk",
+  "sha256": "1a47228a948a3104adbeb978d6be25cac12258ff6632c198d17cffed18b19493",
+  "lint": {
+    "passed": false,
+    "counts": {
+      "Error": 4,
+      "Warning": 28,
+      "Information": 1
+    },
+    "errors": [
+      {
+        "id": "MissingPermission",
+        "file": "RunCompletionNotifier.kt"
+      },
+      {
+        "id": "MissingPermission",
+        "file": "TaskAlarmScheduler.kt"
+      },
+      {
+        "id": "WrongConstant",
+        "file": "AppLauncher.kt"
+      },
+      {
+        "id": "QueryAllPackagesPermission",
+        "file": "AndroidManifest.xml"
+      }
+    ]
+  },
+  "signature_verified": true,
+  "signer_sha256": "25378f4301c0919bb9b455331ed1f86a75a74ea3be5e6f06515959160b65b20b"
+}
