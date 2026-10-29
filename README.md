@@ -8,6 +8,19 @@
 
 ---
 
+## Android 0.3.1 交付
+
+本分支另包含 Android 端 One Agent：任务计划与可配置重试、结束后返回／划卡、飞书远程启动已有任务及一次性任务、成功／失败通知。
+
+- [统一交付 ZIP：Android 源码＋APK＋说明](releases/android/0.3.1/OnDeviceAgentAndroid-0.3.1-bundle.zip)
+- [单独下载 APK](releases/android/0.3.1/OnDeviceAgentAndroid-0.3.1.apk)
+- [Android README：现有功能、暂缓方向与真机测试清单](apps/OnDeviceAgentAndroid/README.md)
+- [飞书接入说明](docs/android-agent-0.3.0-feishu-remote.md)
+
+120 项本地测试通过，版本为 0.3.1（构建 8）；手机安装、真实飞书及后台运行验收待用户后续验证。逐步交互、参考模式、标准工作流输入及 Harness 接入仅记录在 README，暂不开发。
+
+---
+
 ## 灵感来源
 
 本项目受到以下产品/项目启发：
