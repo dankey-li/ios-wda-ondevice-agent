@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "versionCode": 3,
+  "tests": {
+    "tests": 69,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "device_tested": false,
+  "installed": false,
+  "apk": "OnDeviceAgentAndroid-0.2.0-configurable-retry.apk",
+  "sha256": "e100654bb161147afc8701f6e687aac4d920cc5e5f7a3d7c80ebdf9c7da96889",
+  "defaults": {
+    "maxRetries": 1,
+    "retryIntervalMinutes": 5,
+    "retryWindowMinutes": 30,
+    "maxRunMinutes": 15
+  },
+  "lint": {
+    "passed": false,
+    "errors": 4,
+    "warnings": 28,
+    "information": 1,
+    "new_errors": 0,
+    "known_error_ids": [
+      "MissingPermission",
+      "MissingPermission",
+      "WrongConstant",
+      "QueryAllPackagesPermission"
+    ]
+  }
+}

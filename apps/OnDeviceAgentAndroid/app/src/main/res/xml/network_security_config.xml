@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Local loopback / LAN agent API; model base_url may be http in labs. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

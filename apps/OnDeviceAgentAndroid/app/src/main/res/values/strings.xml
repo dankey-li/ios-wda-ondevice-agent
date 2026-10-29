@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OnDevice Agent</string>
+    <string name="accessibility_service_description">允许 OnDevice Agent 在授权后跨应用点击、滑动、输入文字以执行任务。不会绕过锁屏。</string>
+    <string name="fg_notification_title">OnDevice Agent 运行中</string>
+    <string name="fg_notification_text">本地 /agent HTTP 服务已启动（端口 8100）</string>
+</resources>
