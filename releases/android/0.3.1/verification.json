@@ -1,0 +1,25 @@
+{
+  "version": "0.3.1",
+  "versionCode": 8,
+  "base_commit": "d87dad782783558437339609918885476a2495cb",
+  "tests": {
+    "tests": 120,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "device_tested": false,
+  "installed": false,
+  "live_feishu_tested": false,
+  "apk": "OnDeviceAgentAndroid-0.3.1.apk",
+  "sha256": "8135862b617609702952712587562aec5a530d965c71e8c67cd38f74b13fbd03",
+  "signature_verified": true,
+  "signer_sha256": "25378f4301c0919bb9b455331ed1f86a75a74ea3be5e6f06515959160b65b20b",
+  "lint": {
+    "passed": false,
+    "errors": 4,
+    "warnings": 28,
+    "information": 1,
+    "new_issues": 0
+  }
+}

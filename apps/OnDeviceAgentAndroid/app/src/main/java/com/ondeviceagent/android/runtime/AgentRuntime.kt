@@ -38,6 +38,8 @@ import com.ondeviceagent.android.model.PersistedAgentConfig
 import com.ondeviceagent.android.model.TokenUsage
 import com.ondeviceagent.android.model.TraceStatus
 import com.ondeviceagent.android.notify.FeishuWebhookNotifier
+import com.ondeviceagent.android.notify.TaskNotification
+import com.ondeviceagent.android.notify.TaskNotificationPolicy
 import com.ondeviceagent.android.screenshot.ScreenshotSession
 import com.ondeviceagent.android.trace.TraceDetail
 import com.ondeviceagent.android.trace.TraceRecorder
@@ -71,6 +73,7 @@ class AgentRuntime(
     context: Context,
     private val traceRecorder: TraceRecorder,
     private val executionEnvironment: ExecutionEnvironment? = null,
+    private val taskNotificationSink: (suspend (TaskNotification) -> FeishuWebhookNotifier.SendResult)? = null,
 ) {
     private val appContext = context.applicationContext
     private val prefs: SharedPreferences =
@@ -702,26 +705,19 @@ class AgentRuntime(
                                 runId = finishedRunId,
                             )
                         }
-                        var notifyTask: TaskTemplate? = null
+                        var taskNotification: TaskNotification? = null
                         runCatching {
                             val store = OnDeviceAgentApp.get().managerStore
                             val finished = runOwner?.let { owner -> store.finishRun(
                                 owner.id, finishedRunId, owner.executionRevision, success, stopReason, msg,
                                 "上次失败原因：$stopReason。\n计划：\n" + plan.joinToString("\n") { "[${it.id}] ${if (it.done) "已完成待核对" else "待执行"} ${it.text}" } + "\n工作记忆：$notes",
                             ) }
-                            if (success && finished?.notifyOnSuccess == true) notifyTask = finished
+                            taskNotification = finished?.let { TaskNotificationPolicy.create(it, success, stopReason, msg, finishedRunId) }
 
                         }
-                        val webhook = config.feishuWebhookUrl
-                        val feishuAppId = config.feishuAppId
-                        val feishuAppSecret = config.feishuAppSecret
-                        val notifyTitle = notifyTask?.title.orEmpty()
-                        val shouldNotify = notifyTask != null && webhook.isNotBlank()
-                        val lastImage = if (shouldNotify) {
+                        val lastImage = if (taskNotification != null) {
                             runCatching { traceRecorder.lastImageBytes(finishedRunId) }.getOrNull()
-                        } else {
-                            null
-                        }
+                        } else null
                         // 历史、截图和任务状态先落盘；互斥期间完成收尾，防止旧任务抢占新任务。
                         if (runOwner != null) {
                             val store = OnDeviceAgentApp.get().managerStore
@@ -745,33 +741,37 @@ class AgentRuntime(
                             }
                         }
                         stopLoopLocked(msg, finishedTrace = true)
-                        if (shouldNotify) {
-                            scope.launch(Dispatchers.IO) {
-                                val result = FeishuWebhookNotifier.sendTaskSuccess(
-                                    credentials = FeishuWebhookNotifier.Credentials(
-                                        webhookUrl = webhook,
-                                        appId = feishuAppId,
-                                        appSecret = feishuAppSecret,
-                                    ),
-                                    title = notifyTitle,
-                                    task = finishedTask,
-                                    message = msg,
-                                    runId = finishedRunId,
-                                    lastImageJpeg = lastImage,
-                                )
-                                mutex.withLock {
-                                    appendLog(
-                                        if (result.ok) "info" else "warn",
-                                        "feishu notify: ${result.detail}",
-                                    )
-                                    publishUiLocked()
-                                }
-                            }
-                        } else if (notifyTask != null && webhook.isBlank()) {
-                            appendLog("warn", "任务已开启完成通知，但未配置飞书 Webhook")
-                        }
+                        taskNotification?.copy(lastImageJpeg = lastImage)?.let { dispatchTaskNotification(it) }
+
                     }
                 }
+            }
+        }
+    }
+
+    /** 启动失败及重试到期只发送结果，不改变领取、计划或重试状态。 */
+    fun notifyTaskStartFailure(task: TaskTemplate, reason: String) {
+        TaskNotificationPolicy.create(task, false, reason, task.lastRun.message, "")?.let { dispatchTaskNotification(it) }
+    }
+
+    private fun dispatchTaskNotification(notification: TaskNotification) {
+        val cfg = config
+        scope.launch(Dispatchers.IO) {
+            val result = try {
+                when {
+                    taskNotificationSink != null -> taskNotificationSink.invoke(notification)
+                    cfg.feishuWebhookUrl.isBlank() -> FeishuWebhookNotifier.SendResult(false, "任务通知已开启，但未配置飞书 Webhook")
+                    else -> FeishuWebhookNotifier.sendTaskResult(
+                        FeishuWebhookNotifier.Credentials(cfg.feishuWebhookUrl, cfg.feishuAppId, cfg.feishuAppSecret),
+                        notification.title, notification.task, notification.message, notification.runId,
+                        notification.success, notification.lastImageJpeg, notification.heading, notification.color,
+                    )
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { FeishuWebhookNotifier.SendResult(false, "飞书通知发送异常，业务结果已保留") }
+            mutex.withLock {
+                appendLog(if (result.ok) "info" else "warn", "feishu notify: ${result.detail}")
+                publishUiLocked()
             }
         }
     }

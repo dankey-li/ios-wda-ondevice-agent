@@ -168,6 +168,7 @@ fun TasksScreen(
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         }
+                        if (item.notifyOnFailure) Text("失败通知：开（等待重试会注明）", style = MaterialTheme.typography.bodySmall)
                         if (item.submissionPending.isNotBlank()) {
                             Text("提交保护：${item.submissionPending} 的结果尚待核对", color = MaterialTheme.colorScheme.error)
                             TextButton(enabled = !state.running, onClick = { confirmClear = item.id }) { Text("已核对结果，解除提交保护") }
@@ -209,12 +210,12 @@ fun TasksScreen(
                                 onClick = {
                                     managerStore.toggleNotifyOnSuccess(item.id)
                                     status = if (!item.notifyOnSuccess) {
-                                        "已开启完成通知：${item.title}"
+                                        "已开启成功通知：${item.title}"
                                     } else {
-                                        "已关闭完成通知：${item.title}"
+                                        "已关闭成功通知：${item.title}"
                                     }
                                 },
-                                label = { Text(if (item.notifyOnSuccess) "通知·开" else "通知") },
+                                label = { Text(if (item.notifyOnSuccess) "成功通知·开" else "成功通知") },
                             )
                             OutlinedButton(onClick = {
                                 managerStore.select(item.id)
@@ -270,6 +271,7 @@ private fun TaskEditorDialog(
     var minute by remember { mutableStateOf(initial.minute.toString()) }
     var weekdays by remember { mutableStateOf(initial.weekdays.toSet().ifEmpty { setOf(2) }) }
     var notifyOnSuccess by remember { mutableStateOf(initial.notifyOnSuccess) }
+    var notifyOnFailure by remember { mutableStateOf(initial.notifyOnFailure) }
     var retryOnFailure by remember { mutableStateOf(initial.retryOnFailure) }
     var maxRetries by remember { mutableStateOf(initial.maxRetries.toString()) }
     var interval by remember { mutableStateOf(initial.retryIntervalMinutes.toString()) }
@@ -334,7 +336,7 @@ private fun TaskEditorDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "成功后飞书通知（需先在配置页填写 Webhook）",
+                        "成功后飞书通知（需配置 Webhook）",
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -342,6 +344,10 @@ private fun TaskEditorDialog(
                         checked = notifyOnSuccess,
                         onCheckedChange = { notifyOnSuccess = it },
                     )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("失败后飞书通知（需配置 Webhook）", Modifier.weight(1f))
+                    Switch(checked = notifyOnFailure, onCheckedChange = { notifyOnFailure = it })
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("失败后自动重试", modifier = Modifier.weight(1f))
@@ -448,6 +454,7 @@ private fun TaskEditorDialog(
                             minute = minute.toIntOrNull() ?: 0,
                             weekdays = weekdays.sorted(),
                             notifyOnSuccess = notifyOnSuccess,
+                            notifyOnFailure = notifyOnFailure,
                             retryOnFailure = retryOnFailure,
                             maxRetries = maxRetries.toIntOrNull() ?: 1,
                             retryIntervalMinutes = interval.toIntOrNull() ?: 5,

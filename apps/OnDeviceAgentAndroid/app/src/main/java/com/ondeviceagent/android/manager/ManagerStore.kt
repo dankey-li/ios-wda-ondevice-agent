@@ -21,6 +21,8 @@ class ManagerStore(
         encodeDefaults = true
     }
 
+    var onFailureNotice: ((TaskTemplate, String) -> Unit)? = null
+
     var storageWarning: String = ""
         private set
     private val _templates = MutableStateFlow(loadTemplates())
@@ -151,9 +153,14 @@ class ManagerStore(
 
     @Synchronized
     fun deferRetry(id: String) {
+        val before = _templates.value.firstOrNull { it.id == id }
         _templates.update { list -> list.map { if (it.id == id) FailureRetryPolicy.defer(it, System.currentTimeMillis()) else it } }
         persist()
         syncAlarms()
+        val after = _templates.value.firstOrNull { it.id == id }
+        if (before?.pendingRetryAtEpochMs != null && after != null && after.pendingRetryAtEpochMs == null) {
+            runCatching { onFailureNotice?.invoke(after, "retry_expired") }
+        }
     }
 
     @Synchronized
@@ -209,6 +216,7 @@ class ManagerStore(
         _templates.update { list -> list.map { if (it.id == id) queued else it } }
         persist()
         syncAlarms()
+        runCatching { onFailureNotice?.invoke(queued, reason) }
     }
 
     @Synchronized

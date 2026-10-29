@@ -29,6 +29,8 @@ class RuntimeLifecycleTest {
     private lateinit var runtime: AgentRuntime
     private val actions = java.util.Collections.synchronizedList(mutableListOf<String>())
     private var screen = "测试页面"
+    private val notifications = java.util.Collections.synchronizedList(mutableListOf<com.ondeviceagent.android.notify.TaskNotification>())
+    private var failNotification = false
     private var postRunCalls = 0
     private var postRunHook: suspend (TaskTemplate) -> String = { "模拟返回任务页" }
 
@@ -53,6 +55,10 @@ class RuntimeLifecycleTest {
                 actions += request.name.orEmpty()
                 return AgentActionResult(true, name = request.name.orEmpty())
             }
+        }, taskNotificationSink = { notification ->
+            notifications += notification
+            if (failNotification) throw IllegalStateException("模拟通知失败")
+            com.ondeviceagent.android.notify.FeishuWebhookNotifier.SendResult(true, "模拟已发送")
         })
         runtime.applyConfig(AgentConfigRequest(baseUrl = server.url("/v1").toString(), model = "mock", apiKey = "local-only", apiMode = "chat_completions", maxSteps = 20, stepDelaySeconds = 0.1))
         app.managerStore.upsert(TaskTemplate(id = "runtime-test", title = "测试", task = "业务任务", maxRetries = 0))
@@ -139,6 +145,46 @@ class RuntimeLifecycleTest {
         release.complete(Unit)
         withTimeout(5000) { contender.join() }
         assertEquals(1, postRunCalls)
+    }
+
+    private suspend fun notified() = withTimeout(5000) { while (notifications.isEmpty()) delay(10); notifications.single() }
+
+    @Test fun `业务失败默认派发失败通知而不是成功通知`() = runBlocking {
+        server.enqueue(response("Finish", buildJsonObject { put("status", "failed"); put("message", "页面未完成") }))
+        start(); assertFalse(completed().success)
+        val notice = notified()
+        assertFalse(notice.success); assertEquals("red", notice.color)
+        assertTrue(notice.heading.contains("任务失败")); assertTrue(notice.message.contains("model_failed"))
+        assertEquals(1, server.requestCount)
+    }
+    @Test fun `失败通知明确区分待重试而不提前报告最终失败`() = runBlocking {
+        val owner = app.managerStore.templates.value.single()
+        app.managerStore.upsert(owner.copy(maxRetries = 1))
+        server.enqueue(response("Finish", buildJsonObject { put("status", "failed"); put("message", "本次未完成") }))
+        start(); completed()
+        val notice = notified()
+        assertEquals("orange", notice.color); assertTrue(notice.heading.contains("等待重试"))
+        assertTrue(notice.message.contains("1/1")); assertNotNull(app.managerStore.templates.value.single().pendingRetryAtEpochMs)
+    }
+    @Test fun `关闭失败通知后不派发Webhook任务消息`() = runBlocking {
+        val owner = app.managerStore.templates.value.single()
+        app.managerStore.upsert(owner.copy(notifyOnFailure = false))
+        server.enqueue(response("Finish", buildJsonObject { put("status", "failed"); put("message", "未完成") }))
+        start(); completed()
+        assertTrue(notifications.isEmpty())
+    }
+    @Test fun `通知发送异常不改变业务结果和执行次数`() = runBlocking {
+        failNotification = true
+        server.enqueue(response("Finish", buildJsonObject { put("status", "failed"); put("message", "业务失败") }))
+        start(); val result = completed(); notified()
+        assertFalse(result.success)
+        assertEquals(TaskRunState.failed, app.managerStore.templates.value.single().lastRun.state)
+        assertEquals(1, server.requestCount)
+    }
+    @Test fun `主动停止不推送失败通知`() = runBlocking {
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+        start(); runtime.stop()
+        assertTrue(notifications.isEmpty())
     }
 
     @Test fun `Home用于纠错后继续执行不会自动判成功`() = runBlocking {

@@ -32,6 +32,7 @@ class OnDeviceAgentApp : Application() {
         traceRecorder.recoverIncompleteRuns()
         managerStore.recoverInterrupted()
         runtime = AgentRuntime(this, traceRecorder)
+        managerStore.onFailureNotice = runtime::notifyTaskStartFailure
         scheduledRunCoordinator = ScheduledRunCoordinator(
             appContext = this,
             managerStore = managerStore,

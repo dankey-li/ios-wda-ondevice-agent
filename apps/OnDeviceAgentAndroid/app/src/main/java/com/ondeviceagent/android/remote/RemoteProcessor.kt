@@ -117,7 +117,7 @@ class RemoteProcessor(
                     journal.update(dispatch)
                     journal.reply(entry, "accepted", "已收到指令，正在检查并启动。", now)
                     val owner = if (task != null) task else TaskTemplate(id = taskId, title = "飞书一次性任务", task = cmd.argument,
-                        isTemplate = false, isEphemeral = true, schedule = TaskSchedule(), retryOnFailure = false, maxRetries = 0,
+                        isTemplate = false, isEphemeral = true, notifyOnFailure = false, schedule = TaskSchedule(), retryOnFailure = false, maxRetries = 0,
                         maxRunMinutes = settings.maxRunMinutes, completionText = settings.completionText.take(80),
                         guardedActionTexts = settings.guardedActionTexts.take(200), postRunAction = settings.postRunAction,
                         postRunWhen = settings.postRunWhen, cleanupPackage = settings.cleanupPackage, dismissDirection = settings.dismissDirection).also { store.upsert(it) }

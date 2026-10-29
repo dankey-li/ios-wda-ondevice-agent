@@ -73,6 +73,18 @@ object FeishuWebhookNotifier {
         message: String,
         runId: String,
         lastImageJpeg: ByteArray? = null,
+    ): SendResult = sendTaskResult(credentials, title, task, message, runId, true, lastImageJpeg)
+
+    suspend fun sendTaskResult(
+        credentials: Credentials,
+        title: String,
+        task: String,
+        message: String,
+        runId: String,
+        success: Boolean,
+        lastImageJpeg: ByteArray? = null,
+        heading: String = if (success) "✅ 任务完成" else "❌ 任务失败",
+        color: String = if (success) "green" else "red",
     ): SendResult = withContext(Dispatchers.IO) {
         val url = credentials.webhookUrl.trim()
         if (url.isEmpty()) return@withContext SendResult(false, "Webhook 未配置")
@@ -83,7 +95,7 @@ object FeishuWebhookNotifier {
             if (task.isNotBlank()) {
                 append("**任务：** ").append(escapeMd(task.take(180))).append('\n')
             }
-            append("**结果：** ").append(escapeMd(message.ifBlank { "success" })).append('\n')
+            append("**结果：** ").append(escapeMd(message.ifBlank { if (success) "success" else "执行失败" })).append('\n')
             if (runId.isNotBlank()) append("**Run：** ").append(escapeMd(runId)).append('\n')
             append("**时间：** ").append(nowText())
         }
@@ -106,7 +118,8 @@ object FeishuWebhookNotifier {
         }
 
         val cardBody = buildInteractiveCard(
-            title = "✅ 任务完成",
+            title = heading,
+            color = color,
             markdown = summary + if (imageNote.isNotBlank()) "\n$imageNote" else "",
             imageKey = imageKey,
         )
@@ -119,10 +132,10 @@ object FeishuWebhookNotifier {
         } else {
             // Fallback to plain text if card rejected.
             val text = buildString {
-                append("✅ OnDevice Agent 任务完成\n")
+                append("OnDevice Agent ").append(heading).append('\n')
                 append("标题：").append(title.ifBlank { "未命名" }).append('\n')
                 if (task.isNotBlank()) append("任务：").append(task.take(200)).append('\n')
-                append("结果：").append(message.ifBlank { "success" }).append('\n')
+                append("结果：").append(message.ifBlank { if (success) "success" else "执行失败" }).append('\n')
                 if (runId.isNotBlank()) append("Run：").append(runId).append('\n')
                 append("时间：").append(nowText())
                 if (imageNote.isNotBlank()) append('\n').append(imageNote)
@@ -180,7 +193,7 @@ object FeishuWebhookNotifier {
         url.startsWith("https://open.feishu.cn/open-apis/bot/") ||
             url.startsWith("https://open.larksuite.com/open-apis/bot/")
 
-    private fun buildInteractiveCard(title: String, markdown: String, imageKey: String?): String {
+    internal fun buildInteractiveCard(title: String, markdown: String, imageKey: String?, color: String = "green"): String {
         val elements = JSONArray().put(
             JSONObject()
                 .put("tag", "div")
@@ -207,7 +220,7 @@ object FeishuWebhookNotifier {
             .put(
                 "header",
                 JSONObject()
-                    .put("template", "green")
+                    .put("template", color)
                     .put(
                         "title",
                         JSONObject().put("tag", "plain_text").put("content", title),
