@@ -107,6 +107,7 @@ data class TaskTemplate(
     val updatedAtEpochMs: Long = System.currentTimeMillis(),
     val lastRunAtEpochMs: Long? = null,
     val isTemplate: Boolean = true,
+    val isEphemeral: Boolean = false,
     val schedule: TaskSchedule = TaskSchedule(),
     val isSchedulePaused: Boolean = false,
     /** When true, send Feishu webhook after a successful run (requires config webhook). */

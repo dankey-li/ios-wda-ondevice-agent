@@ -60,7 +60,8 @@ fun TasksScreen(
     managerStore: ManagerStore,
 ) {
     val state by runtime.uiState.collectAsState()
-    val templates by managerStore.templates.collectAsState()
+    val allTemplates by managerStore.templates.collectAsState()
+    val templates = allTemplates.filterNot { it.isEphemeral }
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf<TaskTemplate?>(null) }
     var creating by remember { mutableStateOf(false) }

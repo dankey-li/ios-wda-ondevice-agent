@@ -23,6 +23,7 @@ class AgentForegroundService : Service() {
         super.onCreate()
         ensureChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
+        OnDeviceAgentApp.get().remoteControl.refresh()
         val runtime = OnDeviceAgentApp.get().runtime
         val server = AgentHttpServer(runtime)
         try {
@@ -54,6 +55,7 @@ class AgentForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        OnDeviceAgentApp.get().remoteControl.stop()
         httpServer?.stop()
         httpServer = null
         super.onDestroy()

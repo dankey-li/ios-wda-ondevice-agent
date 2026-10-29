@@ -162,7 +162,7 @@ fun ConfigScreen(
             value = feishuAppId,
             onValueChange = { feishuAppId = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("飞书 App ID（发截图用）") },
+            label = { Text("飞书 App ID（截图与远程控制）") },
             singleLine = true,
             placeholder = { Text("cli_xxx") },
         )
@@ -211,6 +211,8 @@ fun ConfigScreen(
             },
             modifier = Modifier.fillMaxWidth(),
         ) { Text("发送测试通知（有历史截图则尝试附带）") }
+
+        RemoteControlPanel(onSaveCredentials = { runtime.applyConfig(currentRequest(includeTask = false)) })
 
         Text("系统提示词", style = MaterialTheme.typography.titleMedium)
         Text(

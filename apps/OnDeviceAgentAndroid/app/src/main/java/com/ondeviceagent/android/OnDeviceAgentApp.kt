@@ -17,6 +17,8 @@ class OnDeviceAgentApp : Application() {
         private set
     lateinit var alarmScheduler: TaskAlarmScheduler
         private set
+    lateinit var remoteControl: com.ondeviceagent.android.remote.RemoteControl
+        private set
     lateinit var scheduledRunCoordinator: ScheduledRunCoordinator
         private set
 
@@ -36,6 +38,7 @@ class OnDeviceAgentApp : Application() {
             runtime = runtime,
             alarmScheduler = alarmScheduler,
         )
+        remoteControl = com.ondeviceagent.android.remote.RemoteControl(this, runtime, managerStore)
         managerStore.syncAlarms()
     }
 
