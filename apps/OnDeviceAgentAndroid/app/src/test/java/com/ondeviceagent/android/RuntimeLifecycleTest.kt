@@ -61,6 +61,22 @@ class RuntimeLifecycleTest {
     }
     private suspend fun completed() = withTimeout(10000) { runtime.uiState.first { !it.running && it.lastRunResult != null }.lastRunResult!! }
 
+    @Test fun `任务中心手动运行结束后保留结果但不弹窗`() = runBlocking {
+        val owner = app.managerStore.templates.value.single()
+        app.managerStore.upsert(owner.copy(completionText = "测试页面"))
+        server.enqueue(response("Finish", buildJsonObject {
+            put("status", "success"); put("message", "测试结束"); put("evidence", "当前页面显示测试页面")
+        }))
+        val currentOwner = app.managerStore.templates.value.single()
+        assertTrue(runtime.start(AgentConfigRequest(task = owner.task), taskId = owner.id,
+            claim = RunClaim(currentOwner.executionRevision)).ok)
+        val result = completed()
+        assertEquals("测试结束", result.message)
+        assertTrue(result.success)
+        assertTrue(result.dismissed)
+        assertEquals(TaskRunState.success, app.managerStore.templates.value.single().lastRun.state)
+    }
+
     @Test fun `Home用于纠错后继续执行不会自动判成功`() = runBlocking {
         server.enqueue(response("Launch", buildJsonObject { put("app", "测试") }))
         server.enqueue(response("Home"))

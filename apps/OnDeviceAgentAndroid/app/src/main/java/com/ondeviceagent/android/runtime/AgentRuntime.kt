@@ -689,8 +689,8 @@ class AgentRuntime(
                             stopReason = stopReason,
                             runId = finishedRunId,
                             task = finishedTask,
-                            // 定时运行仅保留历史结果，避免完成弹窗干扰后续任务。
-                            dismissed = !showCompletionReminder,
+                            // 任务中心手动运行和定时运行均不弹窗，结果保留在历史中。
+                            dismissed = !showCompletionReminder || runOwner != null,
                         )
                         if (showCompletionReminder) runCatching {
                             RunCompletionNotifier.notifyResult(
