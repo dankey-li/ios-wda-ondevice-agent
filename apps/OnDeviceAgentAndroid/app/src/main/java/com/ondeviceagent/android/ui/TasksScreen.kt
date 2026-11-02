@@ -36,13 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.ondeviceagent.android.manager.PostRunAction
 import com.ondeviceagent.android.manager.PostRunWhen
-import com.ondeviceagent.android.manager.DismissDirection
 import com.ondeviceagent.android.manager.ManagerStore
 import com.ondeviceagent.android.manager.ScheduleKind
 import com.ondeviceagent.android.manager.TaskRunState
@@ -279,43 +274,10 @@ private fun TaskEditorDialog(
     var maxRun by remember { mutableStateOf(initial.maxRunMinutes.toString()) }
     var completionText by remember { mutableStateOf(initial.completionText) }
     var guardedTexts by remember { mutableStateOf(initial.guardedActionTexts) }
-    var postAction by remember { mutableStateOf(initial.postRunAction) }
+    var postAction by remember { mutableStateOf(initial.postRunAction.effective()) }
     var postWhen by remember { mutableStateOf(initial.postRunWhen) }
     var cleanupPackage by remember { mutableStateOf(initial.cleanupPackage) }
     var direction by remember { mutableStateOf(initial.dismissDirection) }
-    var chooseApp by remember { mutableStateOf(false) }
-    var apps by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
-    var appLoadError by remember { mutableStateOf("") }
-    var appsLoaded by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        val result = withContext(Dispatchers.IO) { runCatching {
-            val intent = android.content.Intent(android.content.Intent.ACTION_MAIN)
-                .addCategory(android.content.Intent.CATEGORY_LAUNCHER)
-            @Suppress("DEPRECATION")
-            context.packageManager.queryIntentActivities(intent, 0)
-                .filter { it.activityInfo.packageName != context.packageName }
-                .map { it.loadLabel(context.packageManager).toString() to it.activityInfo.packageName }
-                .distinctBy { it.second }.sortedBy { it.first }
-        } }
-        apps = result.getOrDefault(emptyList())
-        appLoadError = if (result.isFailure) "应用列表读取失败，请重新打开编辑页" else ""
-        appsLoaded = true
-    }
-    if (chooseApp) {
-        AlertDialog(onDismissRequest = { chooseApp = false }, title = { Text("选择要划掉的目标 App") },
-            text = { Column {
-                if (!appsLoaded) Text("正在读取应用…")
-                else if (appLoadError.isNotBlank()) Text(appLoadError)
-                else if (apps.isEmpty()) Text("未找到可启动应用")
-                LazyColumn(Modifier.height(320.dp)) { items(apps) { (label, pkg) ->
-                    TextButton(onClick = { cleanupPackage = pkg; chooseApp = false }, modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.fillMaxWidth()) { Text(label); Text(pkg, style = MaterialTheme.typography.bodySmall) }
-                    }
-                } }
-            } }, confirmButton = { TextButton(onClick = { chooseApp = false }) { Text("关闭") } })
-    }
-    val cleanupValid = postAction != PostRunAction.dismissAndReturn || cleanupPackage.isNotBlank()
     val retryValid = !retryOnFailure || (maxRetries.toIntOrNull() in 0..10 && interval.toIntOrNull() in 1..1440 &&
         window.toIntOrNull() in 1..10080 && (window.toIntOrNull() ?: 0) >= (interval.toIntOrNull() ?: 1))
     val runValid = maxRun.toIntOrNull() in 1..180
@@ -368,7 +330,7 @@ private fun TaskEditorDialog(
                 Text("按完整按钮文案匹配，例如“上班打卡”；结果未确认时阻止再次提交。重要任务建议填写成功判据。", style = MaterialTheme.typography.bodySmall)
                 Text("任务结束后", style = MaterialTheme.typography.titleMedium)
                 Column {
-                    PostRunAction.entries.forEach { option ->
+                    PostRunAction.selectable.forEach { option ->
                         FilterChip(selected = postAction == option, onClick = { postAction = option }, label = { Text(option.title) })
                     }
                 }
@@ -380,18 +342,6 @@ private fun TaskEditorDialog(
                         }
                     }
                     Text("手动停止、取消或运行中修改任务时不执行。先保存结果；收尾失败单独记录，不触发业务重试。", style = MaterialTheme.typography.bodySmall)
-                }
-                if (postAction == PostRunAction.dismissAndReturn) {
-                    OutlinedButton(onClick = { chooseApp = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text(apps.firstOrNull { it.second == cleanupPackage }?.first ?: cleanupPackage.ifBlank { "请选择目标 App" })
-                    }
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        DismissDirection.entries.forEach { option ->
-                            FilterChip(selected = direction == option, onClick = { direction = option }, label = { Text(option.title) })
-                        }
-                    }
-                    Text("请按手机最近任务界面的移除方向选择。只处理能明确识别的目标卡片，不使用清理全部；系统不支持或卡片锁定时可能跳过。划掉不等于强制停止后台进程。", style = MaterialTheme.typography.bodySmall)
-                    if (!cleanupValid) Text("请先选择目标 App", color = MaterialTheme.colorScheme.error)
                 }
                 Text("计划到点会自动亮屏并启动任务（无需一直亮屏）")
                 FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -443,7 +393,7 @@ private fun TaskEditorDialog(
         },
         confirmButton = {
             TextButton(
-                enabled = (kind != ScheduleKind.weekly || weekdays.isNotEmpty()) && retryValid && runValid && cleanupValid,
+                enabled = (kind != ScheduleKind.weekly || weekdays.isNotEmpty()) && retryValid && runValid,
                 onClick = {
                     onSave(
                         TaskTemplateDraft(

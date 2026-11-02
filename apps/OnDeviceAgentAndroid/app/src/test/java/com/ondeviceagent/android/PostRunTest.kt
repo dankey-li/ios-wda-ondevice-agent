@@ -33,6 +33,15 @@ class PostRunTest {
         assertFalse(PostRunPolicy.shouldRun(task, true, "finished", 1))
         assertFalse(PostRunPolicy.shouldRun(task, true, "finished", null))
     }
+    @Test fun `旧划卡配置可读取且只映射为返回任务页`() {
+        val task = Json.decodeFromString<TaskTemplate>("""{"title":"旧任务","task":"测试","postRunAction":"dismissAndReturn"}""")
+        assertEquals(PostRunAction.returnToAgent, task.postRunAction.effective())
+        assertFalse(PostRunAction.selectable.contains(PostRunAction.dismissAndReturn))
+        assertTrue(PostRunPolicy.shouldRun(task, true, "finished", task.executionRevision))
+        val remote = Json.decodeFromString<com.ondeviceagent.android.remote.RemoteSettings>("""{"postRunAction":"dismissAndReturn"}""")
+        assertNull(remote.validationError())
+        assertEquals(PostRunAction.returnToAgent, remote.postRunAction.effective())
+    }
     private fun nodes() = listOf(
         RecentCardMatcher.Node(id = "launcher:id/overview"),
         RecentCardMatcher.Node(parent = 0, id = "launcher:id/task_view"),

@@ -28,7 +28,6 @@ data class RemoteSettings(
         chats().any { !it.matches(Regex("oc_[A-Za-z0-9_-]+")) } -> "群会话 ID 须为 oc_ 开头；留空仅允许单聊"
         commandTtlMinutes !in 1..30 -> "指令有效期须为 1～30 分钟"
         maxRunMinutes !in 1..180 -> "一次性任务时限须为 1～180 分钟"
-        postRunAction == PostRunAction.dismissAndReturn && cleanupPackage.isBlank() -> "划卡模式须选择目标应用"
         else -> null
     }
     companion object {

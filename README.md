@@ -1,5 +1,16 @@
 # 基于 WebDriverAgent 的 iOS 端侧 Agent
 
+## Android 0.3.2（构建 9）最新变更
+
+任务结束后仅可选“保持当前页面”或“返回 One Agent 任务页”。旧版“划掉后返回”配置兼容为仅返回；不打开最近任务，不划掉或强制停止目标 App。成功/失败执行条件保持原样。
+
+- [新版 APK](releases/android/0.3.2/OnDeviceAgentAndroid-0.3.2.apk)
+- [源码与 APK 统一 ZIP](releases/android/0.3.2/OnDeviceAgentAndroid-0.3.2-bundle.zip)
+- [验证与真机检查说明](releases/android/0.3.2/README.md)
+
+121 项本地测试通过，构建和签名校验通过。本版未进行真机或真实飞书验证，未重新运行 lint。下方 0.3.1 说明为历史记录，其中划卡功能已在 0.3.2 取消。
+
+
 这个仓库提供一个 **实验性** 方案：把 GUI Agent 的闭环（截图 → 调 LLM → 解析动作 → 执行）塞进 `WebDriverAgentRunner-Runner`（`.xctrunner`）的测试进程里运行。
 
 你不需要在电脑上跑任何 Python 循环；配置（`base_url/model/api_key/task` 等）可以在 iPhone 或本地局域网机器上直接填写，然后让 Runner 在手机上自己跑。

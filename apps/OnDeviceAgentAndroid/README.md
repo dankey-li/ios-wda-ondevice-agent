@@ -1,5 +1,16 @@
 # OnDevice Agent (Android)
 
+## Android 0.3.2（构建 9）最新变更
+
+任务结束后仅可选“保持当前页面”或“返回 One Agent 任务页”。旧版“划掉后返回”配置兼容为仅返回；不打开最近任务，不划掉或强制停止目标 App。成功/失败执行条件保持原样。
+
+- [新版 APK](../../releases/android/0.3.2/OnDeviceAgentAndroid-0.3.2.apk)
+- [源码与 APK 统一 ZIP](../../releases/android/0.3.2/OnDeviceAgentAndroid-0.3.2-bundle.zip)
+- [验证与真机检查说明](../../releases/android/0.3.2/README.md)
+
+121 项本地测试通过，构建和签名校验通过。本版未进行真机或真实飞书验证，未重新运行 lint。下方 0.3.1 说明为历史记录，其中划卡功能已在 0.3.2 取消。
+
+
 Android 端 GUI Agent 的实验实现。目标与 iOS WDA Runner 一致：
 
 ```text

@@ -1,55 +1,27 @@
 package com.ondeviceagent.android.ui
 
-import android.content.Intent
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.ondeviceagent.android.OnDeviceAgentApp
 import com.ondeviceagent.android.manager.*
 import com.ondeviceagent.android.remote.RemoteCommands
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RemoteControlPanel(onSaveCredentials: suspend () -> Unit) {
-    val context = LocalContext.current
     val control = remember { OnDeviceAgentApp.get().remoteControl }
     val connection by control.connectionState.collectAsState()
-    var settings by remember { mutableStateOf(control.settings()) }
+    var settings by remember { mutableStateOf(control.settings().let { it.copy(postRunAction = it.postRunAction.effective()) }) }
     var ttl by remember { mutableStateOf(settings.commandTtlMinutes.toString()) }
     var limit by remember { mutableStateOf(settings.maxRunMinutes.toString()) }
     var message by remember { mutableStateOf("") }
-    var choosing by remember { mutableStateOf(false) }
-    var apps by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
-    var appsLoaded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(choosing) {
-        if (choosing && !appsLoaded) {
-            apps = withContext(Dispatchers.IO) { runCatching {
-                @Suppress("DEPRECATION")
-                context.packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
-                    .filter { it.activityInfo.packageName != context.packageName }
-                    .map { it.loadLabel(context.packageManager).toString() to it.activityInfo.packageName }.distinctBy { it.second }.sortedBy { it.first }
-            }.getOrDefault(emptyList()) }
-            appsLoaded = true
-        }
-    }
-    if (choosing) AlertDialog(onDismissRequest = { choosing = false }, title = { Text("选择一次性任务结束后划掉的 App") },
-        text = { Column {
-            if (!appsLoaded) Text("读取应用中…") else if (apps.isEmpty()) Text("未读取到可启动应用，请检查手机权限")
-            LazyColumn(Modifier.height(300.dp)) { items(apps) { (label, pkg) ->
-                TextButton(onClick = { settings = settings.copy(cleanupPackage = pkg); choosing = false }) { Text("$label\n$pkg") }
-            } }
-        } }, confirmButton = { TextButton(onClick = { choosing = false }) { Text("关闭") } })
     Text("飞书远程控制", style = MaterialTheme.typography.titleMedium)
     Text("连接状态：$connection", style = MaterialTheme.typography.bodySmall)
     Row {
@@ -67,21 +39,13 @@ fun RemoteControlPanel(onSaveCredentials: suspend () -> Unit) {
     OutlinedTextField(settings.completionText, { settings = settings.copy(completionText = it.take(80)) }, label = { Text("成功判据（可选）") }, modifier = Modifier.fillMaxWidth())
     OutlinedTextField(settings.guardedActionTexts, { settings = settings.copy(guardedActionTexts = it.take(200)) }, label = { Text("防重复按钮完整文案（逗号分隔）") }, modifier = Modifier.fillMaxWidth())
     Text("一次性任务结束后")
-    PostRunAction.entries.forEach { option -> FilterChip(settings.postRunAction == option,
+    PostRunAction.selectable.forEach { option -> FilterChip(settings.postRunAction == option,
         { settings = settings.copy(postRunAction = option) }, label = { Text(option.title) }) }
     if (settings.postRunAction != PostRunAction.keep) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             PostRunWhen.entries.forEach { option -> FilterChip(settings.postRunWhen == option,
                 { settings = settings.copy(postRunWhen = option) }, label = { Text(option.title) }) }
         }
-    }
-    if (settings.postRunAction == PostRunAction.dismissAndReturn) {
-        OutlinedButton(onClick = { choosing = true }) { Text(apps.firstOrNull { it.second == settings.cleanupPackage }?.first ?: settings.cleanupPackage.ifBlank { "选择目标 App" }) }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            DismissDirection.entries.forEach { option -> FilterChip(settings.dismissDirection == option,
-                { settings = settings.copy(dismissDirection = option) }, label = { Text(option.title) }) }
-        }
-        Text("仅处理可安全识别的指定卡片；划掉不等于强制停止进程。", style = MaterialTheme.typography.bodySmall)
     }
     Button(onClick = { scope.launch {
         val candidate = settings.copy(commandTtlMinutes = ttl.toIntOrNull() ?: 0, maxRunMinutes = limit.toIntOrNull() ?: 0)

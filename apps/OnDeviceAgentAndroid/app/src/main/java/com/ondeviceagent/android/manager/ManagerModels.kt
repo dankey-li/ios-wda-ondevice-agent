@@ -85,7 +85,14 @@ data class TaskLastRun(
 @Serializable
 enum class PostRunAction(val title: String) {
     keep("保持当前页面"), returnToAgent("返回 One Agent 任务页"),
-    dismissAndReturn("划掉目标 App 后返回")
+    // 保留旧枚举值以读取历史配置；执行和编辑统一按返回任务页处理。
+    dismissAndReturn("返回 One Agent 任务页");
+
+    fun effective(): PostRunAction = if (this == dismissAndReturn) returnToAgent else this
+
+    companion object {
+        val selectable = listOf(keep, returnToAgent)
+    }
 }
 
 @Serializable

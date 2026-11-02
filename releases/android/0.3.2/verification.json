@@ -1,0 +1,11 @@
+{
+  "versionName": "0.3.2",
+  "versionCode": 9,
+  "tests": 121,
+  "failures": 0,
+  "signatureVerified": true,
+  "deviceTested": false,
+  "liveFeishuTested": false,
+  "lintRerun": false,
+  "apkSha256": "6016e26d2342977de8b83f67d97dc434921af6565f772e405b8f17b6f286d04c"
+}
