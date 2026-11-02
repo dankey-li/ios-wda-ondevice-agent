@@ -1,0 +1,15 @@
+{
+  "versionName": "0.3.3",
+  "versionCode": 10,
+  "tests": 125,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "signatureVerified": true,
+  "signerSha256": "25378f4301c0919bb9b455331ed1f86a75a74ea3be5e6f06515959160b65b20b",
+  "deviceTested": false,
+  "liveFeishuTested": false,
+  "rootCauseConfirmed": false,
+  "lintRerun": false,
+  "apkSha256": "ce81508dd20e8eacf88e8555aeb3a117ed934d26c7b2f15442761160b63cfee0"
+}

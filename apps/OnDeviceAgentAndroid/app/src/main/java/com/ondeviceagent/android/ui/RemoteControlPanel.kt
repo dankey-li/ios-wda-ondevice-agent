@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 fun RemoteControlPanel(onSaveCredentials: suspend () -> Unit) {
     val control = remember { OnDeviceAgentApp.get().remoteControl }
     val connection by control.connectionState.collectAsState()
+    val diagnostics by control.diagnosticState.collectAsState()
     var settings by remember { mutableStateOf(control.settings().let { it.copy(postRunAction = it.postRunAction.effective()) }) }
     var ttl by remember { mutableStateOf(settings.commandTtlMinutes.toString()) }
     var limit by remember { mutableStateOf(settings.maxRunMinutes.toString()) }
@@ -24,6 +25,12 @@ fun RemoteControlPanel(onSaveCredentials: suspend () -> Unit) {
     val scope = rememberCoroutineScope()
     Text("飞书远程控制", style = MaterialTheme.typography.titleMedium)
     Text("连接状态：$connection", style = MaterialTheme.typography.bodySmall)
+    Text("开关及白名单修改后，须点击下方“保存远程设置并重新连接”才生效。", style = MaterialTheme.typography.bodySmall)
+    if (diagnostics.isEmpty()) Text("尚无接收诊断；保存连接后发送 /帮助。", style = MaterialTheme.typography.bodySmall)
+    else androidx.compose.foundation.text.selection.SelectionContainer {
+        Text(diagnostics.joinToString("\n"), style = MaterialTheme.typography.bodySmall)
+    }
+    Text("诊断仅在本次进程内保留最近 12 条，不含消息正文；其中 ou_ 为发送者，oc_ 为会话，可复制核对白名单。", style = MaterialTheme.typography.bodySmall)
     Row {
         Text("允许飞书指令控制本机", Modifier.weight(1f))
         Switch(settings.enabled, { settings = settings.copy(enabled = it) })

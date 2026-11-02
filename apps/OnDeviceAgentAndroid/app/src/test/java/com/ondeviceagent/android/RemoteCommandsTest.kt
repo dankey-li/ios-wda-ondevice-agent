@@ -81,4 +81,47 @@ class RemoteCommandsTest {
         assertNotNull(settings.copy(commandTtlMinutes = 31).validationError())
         assertNull(settings.validationError())
     }
+    @Test fun `诊断区分用户群提及时效而不泄露正文`() {
+        val messages = mutableListOf<String>()
+        fun check(raw: String, config: RemoteSettings = settings): RemoteCommands.Message? {
+            messages.clear()
+            return RemoteCommands.fromEvent(raw, config, "cli_test", "ou_bot", now, messages::add)
+        }
+        assertNull(check(event(user = "ou_other")))
+        assertTrue(messages.first().contains("ou_other"))
+        assertTrue(messages.last().contains("用户白名单"))
+        assertNull(check(event(true), settings.copy(allowedChats = "")))
+        assertTrue(messages.first().contains("oc_group"))
+        assertTrue(messages.last().contains("群白名单"))
+        assertNull(check(event(true, "ou_otherbot")))
+        assertTrue(messages.last().contains("未 @"))
+        assertNull(check(event(time = now - 300001)))
+        assertTrue(messages.last().contains("过期"))
+        assertNotNull(check(event()))
+        assertFalse(messages.joinToString().contains("打开设置"))
+    }
+    @Test fun `诊断不会展示伪造标识或非命令正文`() {
+        val obj = JSONObject(event())
+        obj.getJSONObject("event").getJSONObject("sender").getJSONObject("sender_id").put("open_id", "ou_bad\nsecret")
+        val messages = mutableListOf<String>()
+        assertNull(RemoteCommands.fromEvent(obj.toString(), settings, "cli_test", "ou_bot", now, messages::add))
+        assertFalse(messages.joinToString().contains("secret"))
+        val ordinary = JSONObject(event())
+        ordinary.getJSONObject("event").getJSONObject("message").put("content", JSONObject().put("text", "我的密码 secret").toString())
+        messages.clear()
+        assertNull(RemoteCommands.fromEvent(ordinary.toString(), settings, "cli_test", "ou_bot", now, messages::add))
+        assertTrue(messages.last().contains("半角 /"))
+        assertFalse(messages.joinToString().contains("secret"))
+    }
+    @Test fun `安全错误只显示受控错误码而不显示密钥和第三方报文`() {
+        assertEquals("飞书消息发送失败：99991672", RemoteDiagnostic.safeError(IllegalStateException("飞书消息发送失败：99991672")))
+        assertEquals("飞书 HTTP 403", RemoteDiagnostic.safeError(IllegalStateException("飞书 HTTP 403")))
+        assertEquals("网络请求失败", RemoteDiagnostic.safeError(java.io.IOException("飞书网络请求失败")))
+        for (raw in listOf("token=secret", "飞书 HTTP 403 secret", "https://example.com/?secret=test")) {
+            val safe = RemoteDiagnostic.safeError(IllegalStateException(raw))
+            assertFalse(safe.contains("secret"))
+            assertFalse(safe.contains("https://"))
+        }
+    }
+
 }

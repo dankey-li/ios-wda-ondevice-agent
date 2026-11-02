@@ -15,6 +15,12 @@ class RemoteControl(private val context: Context, private val runtime: AgentRunt
     val settingsStore = RemoteSettingsStore(context)
     private val status = MutableStateFlow("未启用飞书远程控制")
     val connectionState = status.asStateFlow()
+    private val diagnostics = MutableStateFlow<List<String>>(emptyList())
+    val diagnosticState = diagnostics.asStateFlow()
+    @Synchronized private fun record(message: String) {
+        val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.ROOT).format(java.util.Date())
+        diagnostics.value = (diagnostics.value + "$time  $message").takeLast(12)
+    }
     private var job: Job? = null
     @Volatile private var sharedJournal: RemoteJournal? = null
     @Volatile private var generation = 0L
@@ -27,6 +33,8 @@ class RemoteControl(private val context: Context, private val runtime: AgentRunt
         val currentGeneration = generation
         val settings = settings()
         if (!settings.enabled) { status.value = "未启用飞书远程控制"; return }
+        status.value = "正在启动远程连接…"
+        record("已加载远程设置，准备认证与连接")
         job = scope.launch {
             previous?.join()
             val journal = try { (sharedJournal ?: journalFactory().also { sharedJournal = it }).also { it.recoverInterrupted() } } catch (_: Exception) {
@@ -39,19 +47,29 @@ class RemoteControl(private val context: Context, private val runtime: AgentRunt
                 while (isActive && valid()) {
                     try {
                         val config = runtime.snapshotConfig()
-                        check(config.feishuAppId.isNotBlank() && config.feishuAppSecret.isNotBlank()) { "请先保存飞书 App ID 与 App Secret" }
+                        if (config.feishuAppId.isBlank() || config.feishuAppSecret.isBlank()) {
+                            status.value = "缺少飞书 App ID 或 App Secret，请填写后保存远程设置"
+                            delay(5000); continue
+                        }
+                        status.value = "正在验证凭证和机器人身份…"
                         val botId = api.botId(config.feishuAppId, config.feishuAppSecret)
                         status.value = "正在连接飞书…"
-                        FeishuSocket(api).run(config.feishuAppId, config.feishuAppSecret, { if (valid()) status.value = it }) { raw ->
+                        FeishuSocket(api).run(config.feishuAppId, config.feishuAppSecret, { if (valid()) { status.value = it; record(it) } }) { raw ->
                             if (valid() && runtime.currentConfig().feishuAppId == config.feishuAppId) {
-                                val message = RemoteCommands.fromEvent(raw, settings(), config.feishuAppId, botId, System.currentTimeMillis())
-                                if (message != null) journal.accept(config.feishuAppId, message, System.currentTimeMillis())
+                                val message = RemoteCommands.fromEvent(raw, settings(), config.feishuAppId, botId, System.currentTimeMillis(), ::record)
+                                if (message != null) {
+                                    val accepted = journal.accept(config.feishuAppId, message, System.currentTimeMillis())
+                                    record(if (accepted) "命令已校验并持久接收，等待处理" else "重复消息，已去重，不重复执行")
+                                }
                             }
                         }
                         if (valid()) status.value = "连接已中断，准备重新连接"
                         attempt = 0
                     } catch (cancelled: CancellationException) { throw cancelled }
-                    catch (_: Exception) { if (valid()) status.value = "连接失败；请检查凭证、机器人能力和网络，稍后自动重连" }
+                    catch (error: Exception) { if (valid()) {
+                        status.value = "连接失败：${RemoteDiagnostic.safeError(error)}；稍后自动重连"
+                        record(status.value)
+                    } }
                     delay(minOf(60_000L, 2000L * (1L shl minOf(attempt++, 5))))
                 }
             }
@@ -64,9 +82,9 @@ class RemoteControl(private val context: Context, private val runtime: AgentRunt
                             .firstOrNull { it.nextAt <= System.currentTimeMillis() }?.let { reply ->
                                 if (reply.userId !in settings().users() || (reply.group && reply.chatId !in settings().chats()) || System.currentTimeMillis() - reply.at > 86_400_000) journal.sent(reply.id)
                                 else {
-                                    try { api.send(config.feishuAppId, config.feishuAppSecret, reply); journal.sent(reply.id) }
+                                    try { api.send(config.feishuAppId, config.feishuAppSecret, reply); journal.sent(reply.id); record("回复已发送至原会话") }
                                     catch (cancelled: CancellationException) { throw cancelled }
-                                    catch (_: Exception) { journal.failed(reply.id, System.currentTimeMillis()); status.value = "回复暂未发出，将重试发送；不会重放任务" }
+                                    catch (error: Exception) { journal.failed(reply.id, System.currentTimeMillis()); record("回复失败：${RemoteDiagnostic.safeError(error)}；将重试发送，不重做任务") }
                                 }
                             }
                     } catch (cancelled: CancellationException) { throw cancelled }
@@ -79,7 +97,7 @@ class RemoteControl(private val context: Context, private val runtime: AgentRunt
                     try {
                         processor.tick(runtime.snapshotConfig().feishuAppId, settings())
                     } catch (cancelled: CancellationException) { throw cancelled }
-                    catch (_: Exception) { status.value = "指令处理异常；未自动重放，请检查手机历史" }
+                    catch (_: Exception) { status.value = "指令处理异常；未自动重放，请检查手机历史"; record(status.value) }
                     delay(300)
                 }
             } finally { socketJob.cancel(); replyJob.cancel() }

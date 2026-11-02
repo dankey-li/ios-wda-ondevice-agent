@@ -13,8 +13,8 @@ android {
         applicationId = "com.ondeviceagent.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.3.2"
+        versionCode = 10
+        versionName = "0.3.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

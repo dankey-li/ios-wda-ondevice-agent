@@ -191,4 +191,27 @@ class RemoteProcessorTest {
         assertEquals(0, server.requestCount)
         assertTrue(app.managerStore.templates.value.isEmpty())
     }
+    @Test fun `任务命令从事件校验落盘处理到回复本机模板`() = runBlocking {
+        val task = TaskTemplate(title = "本机测试任务", task = "只查看页面")
+        app.managerStore.upsert(task)
+        val now = System.currentTimeMillis()
+        val raw = org.json.JSONObject().put("header", org.json.JSONObject().put("app_id", appId).put("event_type", "im.message.receive_v1"))
+            .put("event", org.json.JSONObject()
+                .put("sender", org.json.JSONObject().put("sender_type", "user").put("sender_id", org.json.JSONObject().put("open_id", "ou_me")))
+                .put("message", org.json.JSONObject().put("message_id", "om_list").put("chat_id", "oc_test")
+                    .put("create_time", now.toString()).put("chat_type", "p2p").put("message_type", "text")
+                    .put("content", org.json.JSONObject().put("text", "/任务").toString())))
+        val diagnostic = mutableListOf<String>()
+        val message = RemoteCommands.fromEvent(raw.toString(), settings, appId, "ou_bot", now, diagnostic::add)!!
+        assertTrue(journal.accept(appId, message, now))
+        processor.tick(appId, settings)
+        val reply = journal.replies.single()
+        assertTrue(reply.text.contains("本机测试任务"))
+        assertEquals("oc_test", reply.chatId)
+        assertEquals("done", journal.entries.single().state)
+        assertFalse(runtime.status().running)
+        assertEquals(1, app.managerStore.templates.value.size)
+        assertTrue(diagnostic.single().contains("ou_me"))
+    }
+
 }
